@@ -4,26 +4,6 @@ import { useParams } from "next/navigation";
 
 const BACKEND = "https://bhvi2383-live-wedding-ai.hf.space";
 
-// Yahan se change shuru hai: Naya download function
-const downloadImage = async (imageUrl: string, fileName: string) => {
-  try {
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error("Download failed", error);
-    window.open(imageUrl, '_blank');
-  }
-};
-// Yahan tak change hai
-
 type AppStatus = "loading" | "idle" | "camera" | "captured" | "scanning" | "done" | "error" | "inactive";
 
 export default function EventPage() {
@@ -206,7 +186,7 @@ export default function EventPage() {
         .photo-thumb-fallback { width: 100%; aspect-ratio: 4/3; background: #0a1020; display: flex; align-items: center; justify-content: center; color: rgba(201,149,108,0.3); font-size: 28px; }
         .card-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,149,108,0.08); }
         .photo-num { font-size: 9px; letter-spacing: 1.5px; color: rgba(201,149,108,0.4); }
-        .dl-btn { cursor: pointer; background: none; border: none; display: inline-flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
+        .dl-btn { cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
         .dl-btn:hover { color: #e8b888; }
         .empty-state { text-align: center; padding: 36px 0; width: 100%; }
         .empty-icon { font-size: 30px; opacity: 0.2; margin-bottom: 12px; }
@@ -303,12 +283,17 @@ export default function EventPage() {
                           <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
                           <div className="card-footer">
                             <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
-                            <button onClick={() => downloadImage(item.link, `photo-${index + 1}.jpg`)} className="dl-btn">
+                            {/* YAHAN CHANGE KIYA HAI */}
+                            <a 
+                              href={item.link.replace('/view?usp=drivesdk', '').replace('/view', '').replace('file/d/', 'uc?export=download&id=')} 
+                              target="_self"
+                              className="dl-btn"
+                            >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
                               Save
-                            </button>
+                            </a>
                           </div>
                         </div>
                       ))}
