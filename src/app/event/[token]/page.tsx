@@ -66,7 +66,14 @@ export default function EventPage() {
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 640;
-    canvas.getContext("2d")?.drawImage(video, 0, 0);
+    
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    }
+    
     setImage(canvas.toDataURL("image/jpeg", 0.92));
     stopCamera();
     setStatus("captured");
