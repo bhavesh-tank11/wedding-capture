@@ -12,6 +12,7 @@ export default function EventPage() {
 
   const [status, setStatus] = useState<AppStatus>("loading");
   const [eventName, setEventName] = useState("");
+  const [studioName, setStudioName] = useState("TS Wedding Capture");
   const [image, setImage] = useState<string | null>(null);
   const [matchedFiles, setMatchedFiles] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState("");
@@ -26,6 +27,7 @@ export default function EventPage() {
         const data = await res.json();
         if (data.status === "success") {
           setEventName(data.event_name);
+          setStudioName(data.photographer_name || "TS Wedding Capture");
           setStatus("idle");
         } else {
           setStatusMsg(data.message || "Event not found!");
@@ -136,10 +138,10 @@ export default function EventPage() {
         .page::before { content: ''; position: fixed; inset: 0; background: radial-gradient(circle at 15% 10%, rgba(201,149,108,0.05) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(100,60,160,0.05) 0%, transparent 40%); pointer-events: none; z-index: 0; }
         .content { position: relative; z-index: 1; width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; }
         .header { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 44px 0 32px; border-bottom: 1px solid rgba(201,149,108,0.12); margin-bottom: 40px; }
-        .brand-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: #C9956C; margin-bottom: 10px; }
+        .brand-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: #C9956C; margin-bottom: 10px; text-align: center; }
         .brand-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; letter-spacing: 2px; color: #F5EFE6; text-align: center; line-height: 1.2; }
         .brand-title span { color: #C9956C; font-weight: 600; }
-        .brand-tagline { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.3); margin-top: 8px; }
+        .brand-tagline { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.3); margin-top: 8px; text-align: center; }
         .scanner-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 32px; }
         .ring-system { position: relative; width: 220px; height: 220px; display: flex; align-items: center; justify-content: center; }
         .ring { position: absolute; border-radius: 50%; }
@@ -226,7 +228,7 @@ export default function EventPage() {
           {!["loading", "inactive"].includes(status) && (
             <>
               <div className="header">
-                <p className="brand-eyebrow">✦ &nbsp;Bhavesh.ai capture&nbsp; ✦</p>
+                <p className="brand-eyebrow">✦ &nbsp;{studioName}&nbsp; ✦</p>
                 <h1 className="brand-title"><span>{eventName || "Wedding"}</span></h1>
                 <p className="brand-tagline">Your moments, beautifully found</p>
               </div>
