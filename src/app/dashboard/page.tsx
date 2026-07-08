@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ token: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [planInfo, setPlanInfo] = useState({ plan: "", daysRemaining: 0, maxEvents: 0, usedEvents: 0 });
 
   useEffect(() => {
     const token = localStorage.getItem("photographer_token");
@@ -32,6 +33,12 @@ export default function DashboardPage() {
       if (data.status === "success") {
         setName(data.name);
         setEvents(data.events);
+        setPlanInfo({
+          plan: data.plan,
+          daysRemaining: data.days_remaining,
+          maxEvents: data.max_events,
+          usedEvents: data.total_events_created
+        });
       } else {
         router.push("/dashboard/login");
       }
@@ -110,10 +117,17 @@ export default function DashboardPage() {
         .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 300; color: #F5EFE6; }
         .nav-logo span { color: #C9956C; font-weight: 600; }
         .nav-right { display: flex; align-items: center; gap: 16px; }
-        .nav-name { font-size: 11px; letter-spacing: 1px; color: rgba(245,239,230,0.4); }
+        .nav-name { font-size: 11px; letter-spacing: 1px; color: rgba(245,239,230,0.4); text-transform: capitalize; }
         .btn-logout { background: transparent; border: 1px solid rgba(245,239,230,0.1); color: rgba(245,239,230,0.35); font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 16px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
         .btn-logout:hover { border-color: rgba(201,149,108,0.3); color: #C9956C; }
         .container { max-width: 700px; margin: 0 auto; }
+        
+        .stats-row { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+        .stat-box { background: rgba(201,149,108,0.05); border: 1px solid rgba(201,149,108,0.15); padding: 16px 20px; border-radius: 6px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+        .stat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.4); }
+        .stat-val { font-family: 'Cormorant Garamond', serif; font-size: 26px; color: #C9956C; line-height: 1; }
+        .stat-sub { font-size: 10px; color: rgba(245,239,230,0.3); font-family: 'Inter', sans-serif; }
+
         .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
         .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; color: #F5EFE6; }
         .page-title span { color: #C9956C; }
@@ -224,6 +238,24 @@ export default function DashboardPage() {
         </nav>
 
         <div className="container">
+          
+          {!loading && (
+            <div className="stats-row">
+              <div className="stat-box">
+                <span className="stat-label">Current Plan</span>
+                <span className="stat-val" style={{ textTransform: 'capitalize' }}>{planInfo.plan || "Free"}</span>
+              </div>
+              <div className="stat-box">
+                <span className="stat-label">Days Left</span>
+                <span className="stat-val">{planInfo.daysRemaining === 9999 ? "Unlimited" : planInfo.daysRemaining}</span>
+              </div>
+              <div className="stat-box">
+                <span className="stat-label">Events Quota</span>
+                <span className="stat-val">{planInfo.usedEvents} <span className="stat-sub">/ {planInfo.maxEvents}</span></span>
+              </div>
+            </div>
+          )}
+
           <div className="top-bar">
             <h1 className="page-title">My <span>Events</span></h1>
             <button className="btn-new" onClick={() => router.push("/dashboard/new-event")}>+ New Event</button>
