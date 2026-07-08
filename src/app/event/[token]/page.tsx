@@ -138,7 +138,7 @@ export default function EventPage() {
         .page::before { content: ''; position: fixed; inset: 0; background: radial-gradient(circle at 15% 10%, rgba(201,149,108,0.05) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(100,60,160,0.05) 0%, transparent 40%); pointer-events: none; z-index: 0; }
         .content { position: relative; z-index: 1; width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; }
         .header { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 44px 0 32px; border-bottom: 1px solid rgba(201,149,108,0.12); margin-bottom: 40px; }
-        .brand-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: #C9956C; margin-bottom: 10px; text-align: center; }
+        .brand-eyebrow { font-size: 18px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; margin-bottom: 12px; text-align: center; }
         .brand-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; letter-spacing: 2px; color: #F5EFE6; text-align: center; line-height: 1.2; }
         .brand-title span { color: #C9956C; font-weight: 600; }
         .brand-tagline { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.3); margin-top: 8px; text-align: center; }
@@ -204,7 +204,9 @@ export default function EventPage() {
         .center-msg h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: rgba(245,239,230,0.5); }
         .center-msg p { font-size: 12px; color: rgba(245,239,230,0.3); letter-spacing: 1px; }
         .spinner { width: 40px; height: 40px; border: 2px solid rgba(201,149,108,0.2); border-top-color: #C9956C; border-radius: 50%; animation: spin 1s linear infinite; }
-        .footer { margin-top: 52px; font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(245,239,230,0.12); text-align: center; }
+        .footer { margin-top: 52px; text-align: center; color: #C9956C; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; }
+        .footer-brand { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; font-weight: 500; }
+        .footer-contact { font-size: 11px; letter-spacing: 1px; }
         @media (max-width: 360px) { .ring-system { width: 190px; height: 190px; } .face-circle { width: 158px; height: 158px; } .results-grid { grid-template-columns: 1fr; } }
       `}</style>
 
@@ -228,7 +230,7 @@ export default function EventPage() {
           {!["loading", "inactive"].includes(status) && (
             <>
               <div className="header">
-                <p className="brand-eyebrow">✦ &nbsp;{studioName}&nbsp; ✦</p>
+                <p className="brand-eyebrow">{studioName}</p>
                 <h1 className="brand-title"><span>{eventName || "Wedding"}</span></h1>
                 <p className="brand-tagline">Your moments, beautifully found</p>
               </div>
@@ -316,7 +318,10 @@ export default function EventPage() {
                   )}
                 </>
               )}
-              <div className="footer"><p>Powered by TS Wedding Capture &nbsp;·&nbsp; AI Technology</p></div>
+              <div className="footer">
+                <p className="footer-brand">Powered by Bhavesh.Ai Technology</p>
+                <p className="footer-contact">contact:- takbhvi@gmail.com</p>
+              </div>
             </>
           )}
         </div>
