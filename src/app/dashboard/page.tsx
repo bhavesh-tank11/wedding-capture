@@ -1,102 +1,41 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { QRCodeCanvas } from "qrcode.react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 
 const BACKEND = "https://bhvi2383-live-wedding-ai.hf.space";
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [events, setEvents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [toggling, setToggling] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ token: string; name: string } | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  // Naya State: Subscription Details ke liye
-  const [subInfo, setSubInfo] = useState({
-    max_events: 0,
-    events_used: 0,
-    days_remaining: 0,
-    plan: ""
-  });
+export default function GalleryPage() {
+  const params     = useParams();
+  const token      = params.token as string;
+  const [status, setStatus]       = useState<"loading"|"done"|"error">("loading");
+  const [eventName, setEventName] = useState("");
+  const [photos, setPhotos]       = useState<any[]>([]);
+  const [errorMsg, setErrorMsg]   = useState("");
+  const [search, setSearch]       = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("photographer_token");
-    if (!token) { router.push("/dashboard/login"); return; }
-    loadEvents(token);
-  }, []);
-
-  const loadEvents = async (token?: string) => {
-    const t = token || localStorage.getItem("photographer_token");
-    if (!t) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`${BACKEND}/photographer/events?photographer_token=${t}`);
-      const data = await res.json();
-      if (data.status === "success") {
-        setName(data.name);
-        setEvents(data.events);
-        // Backend se aane wale data ko yahan save kar rahe hain
-        setSubInfo({
-          max_events: data.max_events,
-          events_used: data.total_events_created, // Lifetime quota counter
-          days_remaining: data.days_remaining,
-          plan: data.plan || "N/A"
-        });
-      } else {
-        router.push("/dashboard/login");
+    const load = async () => {
+      try {
+        const res  = await fetch(`${BACKEND}/gallery/${token}`);
+        const data = await res.json();
+        if (data.status === "success") {
+          setEventName(data.event_name);
+          setPhotos(data.data || []);
+          setStatus("done");
+        } else {
+          setErrorMsg(data.message || "Could not load gallery.");
+          setStatus("error");
+        }
+      } catch {
+        setErrorMsg("Could not connect to server.");
+        setStatus("error");
       }
-    } catch { }
-    setLoading(false);
-  };
+    };
+    if (token) load();
+  }, [token]);
 
-  const toggleEvent = async (event_token: string, active: boolean) => {
-    const photographer_token = localStorage.getItem("photographer_token");
-    setToggling(event_token);
-    try {
-      await fetch(`${BACKEND}/photographer/toggle-event`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photographer_token, event_token, active }),
-      });
-      await loadEvents();
-    } catch { }
-    setToggling(null);
-  };
-
-  const confirmDelete = (event_token: string, event_name: string) => {
-    setDeleteConfirm({ token: event_token, name: event_name });
-  };
-
-  const cancelDelete = () => setDeleteConfirm(null);
-
-  const deleteEvent = async () => {
-    if (!deleteConfirm) return;
-    const photographer_token = localStorage.getItem("photographer_token");
-    setDeleting(deleteConfirm.token);
-    setDeleteConfirm(null);
-    try {
-      await fetch(`${BACKEND}/photographer/delete-event`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photographer_token, event_token: deleteConfirm.token }),
-      });
-      await loadEvents();
-    } catch { }
-    setDeleting(null);
-  };
-
-  const logout = () => {
-    localStorage.removeItem("photographer_token");
-    localStorage.removeItem("photographer_name");
-    router.push("/dashboard/login");
-  };
-
-  const filteredEvents = events.filter(e =>
-    e.event_name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = photos.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -105,300 +44,129 @@ export default function DashboardPage() {
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #060B18; font-family: 'Inter', sans-serif; min-height: 100vh; }
-        .page { min-height: 100vh; background: radial-gradient(ellipse at 50% -5%, #1a0e2e 0%, #060B18 55%); color: #F5EFE6; padding: 0 20px 72px; }
-        .navbar { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid rgba(201,149,108,0.12); margin-bottom: 40px; max-width: 700px; margin-left: auto; margin-right: auto; }
-        .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 300; color: #F5EFE6; }
-        .nav-logo span { color: #C9956C; font-weight: 600; }
-        .nav-right { display: flex; align-items: center; gap: 16px; }
-        .nav-name { font-size: 11px; letter-spacing: 1px; color: rgba(245,239,230,0.4); }
-        .btn-logout { background: transparent; border: 1px solid rgba(245,239,230,0.1); color: rgba(245,239,230,0.35); font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 16px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
-        .btn-logout:hover { border-color: rgba(201,149,108,0.3); color: #C9956C; }
-        .container { max-width: 700px; margin: 0 auto; }
-        .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-        .page-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; color: #F5EFE6; }
-        .page-title span { color: #C9956C; }
-        .btn-new { background: linear-gradient(135deg, #C9956C 0%, #a87548 100%); color: #060B18; border: none; border-radius: 2px; padding: 12px 24px; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
-        .btn-new:hover { opacity: 0.9; }
-        
-        /* Subscription Banner Styles (Naya Code) */
-        .sub-banner { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid rgba(201,149,108,0.15); border-radius: 8px; padding: 20px 24px; margin-bottom: 28px; flex-wrap: wrap; gap: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-        .sub-item { display: flex; flex-direction: column; gap: 4px; }
-        .sub-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: rgba(201,149,108,0.6); }
-        .sub-value { font-size: 18px; color: #F5EFE6; font-family: 'Cormorant Garamond', serif; }
-        .sub-value.alert { color: #d08080; } /* Jab quota khatam hone wala ho */
-        
-        /* Search Bar Styles */
+        .page { min-height: 100vh; background: radial-gradient(ellipse at 50% -5%, #1a0e2e 0%, #060B18 55%); color: #F5EFE6; display: flex; flex-direction: column; align-items: center; padding: 0 20px 72px; }
+        .content { width: 100%; max-width: 700px; }
+        .header { display: flex; flex-direction: column; align-items: center; padding: 44px 0 32px; border-bottom: 1px solid rgba(201,149,108,0.12); margin-bottom: 36px; }
+        .brand-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 4px; text-transform: uppercase; color: #C9956C; margin-bottom: 10px; }
+        .brand-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; letter-spacing: 2px; color: #F5EFE6; text-align: center; }
+        .brand-title span { color: #C9956C; font-weight: 600; }
+        .brand-sub { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.3); margin-top: 8px; }
+        .count-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+        .count-label { font-size: 11px; color: rgba(245,239,230,0.3); letter-spacing: 1px; }
+        .count-label span { color: #C9956C; }
         .search-wrap { position: relative; margin-bottom: 28px; }
         .search-input { width: 100%; background: #0F1A2E; border: 1px solid rgba(201,149,108,0.15); border-radius: 4px; padding: 12px 16px 12px 40px; color: #F5EFE6; font-family: 'Inter', sans-serif; font-size: 13px; outline: none; transition: border-color 0.2s; }
         .search-input:focus { border-color: rgba(201,149,108,0.4); }
         .search-input::placeholder { color: rgba(245,239,230,0.2); }
         .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); opacity: 0.3; pointer-events: none; }
-        .search-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: rgba(245,239,230,0.3); cursor: pointer; font-size: 16px; padding: 2px 6px; transition: color 0.2s; }
+        .search-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: rgba(245,239,230,0.3); cursor: pointer; font-size: 16px; padding: 2px 6px; }
         .search-clear:hover { color: #C9956C; }
-        .search-count { font-size: 10px; letter-spacing: 1px; color: rgba(245,239,230,0.25); margin-top: 8px; }
-        
-        .spinner { width: 32px; height: 32px; border: 2px solid rgba(201,149,108,0.2); border-top-color: #C9956C; border-radius: 50%; animation: spin 1s linear infinite; margin: 60px auto; display: block; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; width: 100%; }
+        .photo-card { background: #0F1A2E; border: 1px solid rgba(201,149,108,0.1); border-radius: 6px; overflow: hidden; transition: all 0.25s; }
+        .photo-card:hover { border-color: rgba(201,149,108,0.35); transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.5); }
+        .photo-thumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; background: #0a1020; }
+        .photo-thumb-fallback { width: 100%; aspect-ratio: 4/3; background: #0a1020; display: flex; align-items: center; justify-content: center; color: rgba(201,149,108,0.3); font-size: 28px; }
+        .card-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,149,108,0.08); }
+        .photo-num { font-size: 9px; letter-spacing: 1.5px; color: rgba(201,149,108,0.4); }
+        .dl-btn { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
+        .dl-btn:hover { color: #e8b888; }
+        .center-msg { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; text-align: center; width: 100%; }
+        .center-msg h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: rgba(245,239,230,0.5); }
+        .center-msg p { font-size: 12px; color: rgba(245,239,230,0.3); letter-spacing: 1px; }
+        .spinner { width: 40px; height: 40px; border: 2px solid rgba(201,149,108,0.2); border-top-color: #C9956C; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .events-list { display: flex; flex-direction: column; gap: 16px; }
-        .event-card { background: #0F1A2E; border: 1px solid rgba(201,149,108,0.1); border-radius: 8px; padding: 24px; transition: border-color 0.2s; }
-        .event-card:hover { border-color: rgba(201,149,108,0.25); }
-        .event-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-        .event-name { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 400; color: #F5EFE6; }
-        .badge { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; }
-        .badge-active { background: rgba(100,200,100,0.1); color: #80d080; border: 1px solid rgba(100,200,100,0.2); }
-        .badge-inactive { background: rgba(200,100,100,0.1); color: #d08080; border: 1px solid rgba(200,100,100,0.2); }
-        
-        .event-meta { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
-        .meta-item { display: flex; flex-direction: column; gap: 3px; }
-        .meta-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: rgba(201,149,108,0.4); }
-        .meta-value { font-size: 12px; color: rgba(245,239,230,0.6); font-family: monospace; word-break: break-all; }
-        
-        .qr-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .qr-link { font-size: 11px; color: #C9956C; word-break: break-all; text-decoration: none; }
-        .qr-link:hover { text-decoration: underline; }
-        .btn-copy { background: transparent; border: 1px solid rgba(201,149,108,0.2); color: rgba(201,149,108,0.7); font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 12px; border-radius: 2px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .btn-copy:hover { border-color: #C9956C; color: #C9956C; }
-        
-        /* QR Code Display Section */
-        .qr-display-section { display: flex; align-items: center; gap: 20px; margin-top: 16px; flex-wrap: wrap; background: rgba(255,255,255,0.02); padding: 16px; border-radius: 8px; border: 1px solid rgba(201,149,108,0.05); }
-        .qr-canvas-wrapper { padding: 8px; background: #fff; border-radius: 4px; display: inline-flex; }
-        .btn-download-qr { background: #C9956C; color: #060B18; border: none; font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; padding: 10px 20px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
-        .btn-download-qr:hover { opacity: 0.9; transform: translateY(-1px); }
-        
-        .event-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; border-top: 1px solid rgba(201,149,108,0.08); margin-top: 20px; }
-        .btn-toggle { font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 20px; border-radius: 2px; cursor: pointer; transition: all 0.2s; border: 1px solid; }
-        .btn-deactivate { background: transparent; color: rgba(200,100,100,0.7); border-color: rgba(200,100,100,0.2); }
-        .btn-deactivate:hover { background: rgba(200,100,100,0.1); }
-        .btn-activate { background: transparent; color: rgba(100,200,100,0.7); border-color: rgba(100,200,100,0.2); }
-        .btn-activate:hover { background: rgba(100,200,100,0.1); }
-        .btn-delete { font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 20px; border-radius: 2px; cursor: pointer; transition: all 0.2s; border: 1px solid rgba(200,80,80,0.2); background: transparent; color: rgba(200,80,80,0.6); }
-        .btn-delete:hover { background: rgba(200,80,80,0.1); border-color: rgba(200,80,80,0.4); color: #f08080; }
-        .btn-delete:disabled { opacity: 0.3; cursor: not-allowed; }
-        
-        .empty { text-align: center; padding: 60px 0; }
-        .empty-icon { font-size: 36px; opacity: 0.2; margin-bottom: 16px; }
-        .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 300; color: rgba(245,239,230,0.3); }
-        .empty-sub { font-size: 11px; color: rgba(245,239,230,0.2); margin-top: 8px; letter-spacing: 0.5px; }
-        .copied { color: #80d080 !important; border-color: rgba(100,200,100,0.3) !important; }
-        
-        /* Modal Styles */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; backdrop-filter: blur(4px); }
-        .modal { background: #0F1A2E; border: 1px solid rgba(200,80,80,0.25); border-radius: 10px; padding: 36px; max-width: 400px; width: 100%; }
-        .modal-icon { font-size: 32px; text-align: center; margin-bottom: 16px; }
-        .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; color: #F5EFE6; text-align: center; margin-bottom: 10px; }
-        .modal-desc { font-size: 12px; color: rgba(245,239,230,0.4); text-align: center; line-height: 1.7; margin-bottom: 8px; }
-        .modal-event-name { font-size: 16px; color: #C9956C; text-align: center; font-family: 'Cormorant Garamond', serif; margin-bottom: 24px; }
-        .modal-warning { font-size: 10px; color: rgba(200,80,80,0.6); text-align: center; margin-bottom: 28px; letter-spacing: 0.5px; line-height: 1.6; }
-        .modal-btns { display: flex; gap: 12px; }
-        .modal-btn-cancel { flex: 1; background: transparent; border: 1px solid rgba(245,239,230,0.1); color: rgba(245,239,230,0.4); font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; padding: 14px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
-        .modal-btn-cancel:hover { border-color: rgba(201,149,108,0.3); color: #C9956C; }
-        .modal-btn-delete { flex: 1; background: rgba(200,60,60,0.15); border: 1px solid rgba(200,60,60,0.35); color: #f08080; font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; padding: 14px; border-radius: 2px; cursor: pointer; transition: all 0.2s; }
-        .modal-btn-delete:hover { background: rgba(200,60,60,0.25); }
+        .footer { margin-top: 52px; font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: rgba(245,239,230,0.12); text-align: center; }
+        .empty { text-align: center; padding: 40px 0; }
+        .empty-icon { font-size: 30px; opacity: 0.2; margin-bottom: 12px; }
+        .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 300; color: rgba(245,239,230,0.3); }
+        @media (max-width: 480px) { .grid { grid-template-columns: 1fr 1fr; } }
       `}</style>
 
-      {/* Delete Confirm Modal */}
-      {deleteConfirm && (
-        <div className="modal-overlay" onClick={cancelDelete}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-icon">🗑️</div>
-            <p className="modal-title">Delete Event?</p>
-            <p className="modal-desc">You are about to permanently delete:</p>
-            <p className="modal-event-name">"{deleteConfirm.name}"</p>
-            <p className="modal-warning">⚠️ This event will still count toward your quota even after deletion. This action cannot be undone.</p>
-            <div className="modal-btns">
-              <button className="modal-btn-cancel" onClick={cancelDelete}>Cancel</button>
-              <button className="modal-btn-delete" onClick={deleteEvent}>Yes, Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="page">
-        <nav className="navbar">
-          <div className="nav-logo">TS Wedding <span>Capture</span></div>
-          <div className="nav-right">
-            <span className="nav-name">{name}</span>
-            <button className="btn-logout" onClick={logout}>Logout</button>
-          </div>
-        </nav>
+        <div className="content">
 
-        <div className="container">
-          <div className="top-bar">
-            <h1 className="page-title">My <span>Events</span></h1>
-            <button className="btn-new" onClick={() => router.push("/dashboard/new-event")}>+ New Event</button>
-          </div>
-
-          {/* NAYA WIDGET: Subscription Banner */}
-          {!loading && (
-            <div className="sub-banner">
-              <div className="sub-item">
-                <span className="sub-label">Current Plan</span>
-                <span className="sub-value" style={{textTransform: 'capitalize'}}>{subInfo.plan}</span>
-              </div>
-              <div className="sub-item">
-                <span className="sub-label">Event Quota Used</span>
-                <span className={`sub-value ${subInfo.events_used >= subInfo.max_events ? 'alert' : ''}`}>
-                  {subInfo.events_used} / {subInfo.max_events}
-                </span>
-              </div>
-              <div className="sub-item">
-                <span className="sub-label">License Expires In</span>
-                <span className={`sub-value ${subInfo.days_remaining <= 10 ? 'alert' : ''}`}>
-                  {subInfo.days_remaining} Days
-                </span>
-              </div>
+          {status === "loading" && (
+            <div className="center-msg">
+              <div className="spinner" />
+              <p>Loading gallery...</p>
             </div>
           )}
 
-          {/* Search Bar */}
-          {!loading && events.length > 0 && (
-            <div className="search-wrap">
-              <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9956C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                className="search-input"
-                type="text"
-                placeholder="Search events by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button className="search-clear" onClick={() => setSearchQuery("")}>✕</button>
-              )}
-              {searchQuery && (
-                <p className="search-count">{filteredEvents.length} of {events.length} events</p>
-              )}
+          {status === "error" && (
+            <div className="center-msg">
+              <div style={{ fontSize: "32px", opacity: 0.2 }}>✦</div>
+              <h2>Gallery Unavailable</h2>
+              <p>{errorMsg}</p>
             </div>
           )}
 
-          {loading ? (
-            <div className="spinner" />
-          ) : events.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">✦</div>
-              <p className="empty-text">No events yet</p>
-              <p className="empty-sub">Create your first event using the button above!</p>
-            </div>
-          ) : filteredEvents.length === 0 ? (
-            <div className="empty">
-              <div className="empty-icon">🔍</div>
-              <p className="empty-text">No events found</p>
-              <p className="empty-sub">Try a different search term</p>
-            </div>
-          ) : (
-            <div className="events-list">
-              {filteredEvents.map((event) => (
-                <EventCard
-                  key={event.event_token}
-                  event={event}
-                  toggling={toggling === event.event_token}
-                  deleting={deleting === event.event_token}
-                  onToggle={toggleEvent}
-                  onDelete={confirmDelete}
-                />
-              ))}
-            </div>
+          {status === "done" && (
+            <>
+              <div className="header">
+                <p className="brand-eyebrow">✦ &nbsp;Bhavesh.ai&nbsp; ✦</p>
+                <h1 className="brand-title"><span>{eventName}</span></h1>
+                <p className="brand-sub">Complete Event Gallery</p>
+              </div>
+
+              {/* Search */}
+              <div className="search-wrap">
+                <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9956C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input className="search-input" type="text" placeholder="Search photos by filename..."
+                  value={search} onChange={(e) => setSearch(e.target.value)} />
+                {search && <button className="search-clear" onClick={() => setSearch("")}>✕</button>}
+              </div>
+
+              <div className="count-bar">
+                <p className="count-label">
+                  <span>{filtered.length}</span> of <span>{photos.length}</span> photos
+                </p>
+              </div>
+
+              {filtered.length === 0 ? (
+                <div className="empty">
+                  <div className="empty-icon">🔍</div>
+                  <p className="empty-text">No photos found</p>
+                </div>
+              ) : (
+                <div className="grid">
+                  {filtered.map((item, index) => (
+                    <div className="photo-card" key={index}>
+                      <img
+                        src={`${BACKEND}/thumbnail?url=${encodeURIComponent(item.thumbnail)}`}
+                        alt={`Photo ${index + 1}`}
+                        className="photo-thumb"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const f = e.currentTarget.nextElementSibling as HTMLElement;
+                          if (f) f.style.display = "flex";
+                        }}
+                      />
+                      <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
+                      <div className="card-footer">
+                        <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
+                        <a href={item.link} target="_blank" rel="noopener noreferrer" className="dl-btn">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                          </svg>
+                          Save
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="footer">
+                <p>Powered by Bhavesh.ai &nbsp;·&nbsp; AI Wedding Technology</p>
+              </div>
+            </>
           )}
         </div>
       </div>
     </>
-  );
-}
-
-function EventCard({ event, toggling, deleting, onToggle, onDelete }: any) {
-  const [copied, setCopied] = useState(false);
-  const qrRef = useRef<HTMLDivElement>(null);
-
-  const frontendUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const guestUrl    = `${frontendUrl}/event/${event.event_token}`;
-
-  const copyUrl = () => {
-    navigator.clipboard.writeText(guestUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const downloadQR = () => {
-    if (!qrRef.current) return;
-    const canvas = qrRef.current.querySelector("canvas");
-    if (!canvas) return;
-    const url      = canvas.toDataURL("image/png");
-    const link     = document.createElement("a");
-    link.href      = url;
-    const safeName = event.event_name.replace(/\s+/g, "_");
-    link.download  = `${safeName}_QR.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  return (
-    <div className="event-card">
-      <div className="event-top">
-        <p className="event-name">{event.event_name}</p>
-        <span className={`badge ${event.active ? "badge-active" : "badge-inactive"}`}>
-          {event.active ? "Active" : "Inactive"}
-        </span>
-      </div>
-
-      <div className="event-meta">
-        <div className="meta-item">
-          <span className="meta-label">Photos Indexed</span>
-          <span className="meta-value">{event.indexed_photos}</span>
-        </div>
-        <div className="meta-item">
-          <span className="meta-label">Drive Folder ID</span>
-          <span className="meta-value">{event.folder_id}</span>
-        </div>
-      </div>
-
-      <div className="meta-item">
-        <span className="meta-label" style={{ marginBottom: "6px" }}>Guest QR URL</span>
-        <div className="qr-row">
-          <a href={guestUrl} target="_blank" className="qr-link">{guestUrl}</a>
-          <button className={`btn-copy ${copied ? "copied" : ""}`} onClick={copyUrl}>
-            {copied ? "Copied! ✓" : "Copy"}
-          </button>
-        </div>
-      </div>
-
-      {/* QR Code Section */}
-      <div className="qr-display-section" ref={qrRef}>
-        <div className="qr-canvas-wrapper">
-          <QRCodeCanvas
-            value={guestUrl}
-            size={100}
-            bgColor={"#ffffff"}
-            fgColor={"#000000"}
-            level={"H"}
-            includeMargin={false}
-          />
-        </div>
-        <div>
-          <button className="btn-download-qr" onClick={downloadQR}>
-            Download QR
-          </button>
-        </div>
-      </div>
-
-      <div className="event-footer">
-        <button
-          className="btn-delete"
-          onClick={() => onDelete(event.event_token, event.event_name)}
-          disabled={deleting}
-        >
-          {deleting ? "Deleting..." : "Delete"}
-        </button>
-        <button
-          className={`btn-toggle ${event.active ? "btn-deactivate" : "btn-activate"}`}
-          onClick={() => onToggle(event.event_token, !event.active)}
-          disabled={toggling}
-        >
-          {toggling ? "..." : event.active ? "Deactivate" : "Activate"}
-        </button>
-      </div>
-    </div>
   );
 }
