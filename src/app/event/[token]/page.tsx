@@ -138,7 +138,7 @@ export default function EventPage() {
         .page::before { content: ''; position: fixed; inset: 0; background: radial-gradient(circle at 15% 10%, rgba(201,149,108,0.05) 0%, transparent 40%), radial-gradient(circle at 85% 85%, rgba(100,60,160,0.05) 0%, transparent 40%); pointer-events: none; z-index: 0; }
         .content { position: relative; z-index: 1; width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; }
         .header { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 44px 0 32px; border-bottom: 1px solid rgba(201,149,108,0.12); margin-bottom: 40px; }
-        .brand-eyebrow { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; letter-spacing: 2px; color: #C9956C; margin-bottom: 8px; text-align: center; }
+        .brand-eyebrow { font-size: 18px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; margin-bottom: 12px; text-align: center; }
         .brand-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; letter-spacing: 2px; color: #F5EFE6; text-align: center; line-height: 1.2; }
         .brand-title span { color: #C9956C; font-weight: 600; }
         .brand-tagline { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: rgba(245,239,230,0.3); margin-top: 8px; text-align: center; }
@@ -289,9 +289,13 @@ export default function EventPage() {
                     <div className="results-grid">
                       {matchedFiles.map((item, index) => (
                         <div className="photo-card" key={index}>
-                          <img src={`${BACKEND}/thumbnail?url=${encodeURIComponent(item.thumbnail)}`} alt={`Photo ${index + 1}`} className="photo-thumb"
-                          loading="lazy"
-                            onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }} />
+                          <img 
+                            src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
+                            alt={`Photo ${index + 1}`} 
+                            className="photo-thumb"
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }} 
+                          />
                           <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
                           <div className="card-footer">
                             <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
