@@ -290,6 +290,7 @@ export default function EventPage() {
                       {matchedFiles.map((item, index) => (
                         <div className="photo-card" key={index}>
                           <img src={`${BACKEND}/thumbnail?url=${encodeURIComponent(item.thumbnail)}`} alt={`Photo ${index + 1}`} className="photo-thumb"
+                          loading="lazy"
                             onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }} />
                           <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
                           <div className="card-footer">
