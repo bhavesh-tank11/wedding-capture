@@ -132,11 +132,12 @@ export default function GalleryPage() {
                 <div className="grid">
                   {filtered.map((item, index) => (
                     <div className="photo-card" key={index}>
-                      <img
-                        src={`${BACKEND}/thumbnail?url=${encodeURIComponent(item.thumbnail)}`}
-                        alt={`Photo ${index + 1}`}
-                        className="photo-thumb"
-                        onError={(e) => {
+                      <img 
+                           src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
+                           alt={item.name}
+                           className="gallery-thumb"
+                           loading="lazy"
+                          /> {
                           e.currentTarget.style.display = "none";
                           const f = e.currentTarget.nextElementSibling as HTMLElement;
                           if (f) f.style.display = "flex";
