@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 
 const BACKEND = "https://bhvi2383-live-wedding-ai.hf.space";
@@ -13,10 +13,13 @@ export default function GalleryPage() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
-  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
   
-  // NAYA: Download ho chuki photos ka record rakhne ke liye
+  const [downloadingIndices, setDownloadingIndices] = useState<Set<number>>(new Set());
   const [downloadedPhotos, setDownloadedPhotos] = useState<Set<number>>(new Set());
+
+  // Queue system ke liye refs
+  const queueRef = useRef<{ link: string; index: number }[]>([]);
+  const isProcessingQueue = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -40,53 +43,75 @@ export default function GalleryPage() {
     if (token) load();
   }, [token]);
 
-  const handleSmartDownload = async (link: string, index: number) => {
-    if (downloadingIndex !== null) return;
-    try {
-      setDownloadingIndex(index);
-      const filename = `wedding-photo-${index + 1}.jpg`;
-      
-      const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
-      const blob = await res.blob();
-      
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  
+  const processQueue = async () => {
+    if (isProcessingQueue.current) return;
+    isProcessingQueue.current = true;
 
-      if (isIOS && navigator.share && navigator.canShare) {
-        const file = new File([blob], filename, { type: "image/jpeg" });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'My Wedding Photo'
-          });
-          setDownloadingIndex(null);
-          // iPhone par share success hone ke baad status update karo
-          setDownloadedPhotos(prev => new Set(prev).add(index));
-          return; 
+    while (queueRef.current.length > 0) {
+      const current = queueRef.current.shift();
+      if (!current) continue;
+
+      const { link, index } = current;
+
+      try {
+        setDownloadingIndices(prev => new Set(prev).add(index));
+        const filename = `wedding-photo-${index + 1}.jpg`;
+        
+        const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
+        const blob = await res.blob();
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+        if (isIOS && navigator.share && navigator.canShare) {
+          const file = new File([blob], filename, { type: "image/jpeg" });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'My Wedding Photo' });
+            setDownloadedPhotos(prev => new Set(prev).add(index));
+            setDownloadingIndices(prev => {
+              const next = new Set(prev);
+              next.delete(index);
+              return next;
+            });
+            continue; 
+          }
         }
+
+        const imageBlob = new Blob([blob], { type: "image/jpeg" });
+        const blobUrl = window.URL.createObjectURL(imageBlob);
+
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+
+        setDownloadedPhotos(prev => new Set(prev).add(index));
+
+      } catch (error) {
+        console.error("Download failed", error);
+      } finally {
+        setDownloadingIndices(prev => {
+          const next = new Set(prev);
+          next.delete(index);
+          return next;
+        });
       }
-
-      const imageBlob = new Blob([blob], { type: "image/jpeg" });
-      const blobUrl = window.URL.createObjectURL(imageBlob);
-
-      const a = document.createElement("a");
-      a.style.display = "none";
-      a.href = blobUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(blobUrl);
-
-      // NAYA: Download complete hone par index save karo
-      setDownloadedPhotos(prev => new Set(prev).add(index));
-
-    } catch (error) {
-      console.error("Download failed", error);
-      alert("Download failed. Please try again.");
-    } finally {
-      setDownloadingIndex(null);
     }
+
+    isProcessingQueue.current = false;
+  };
+
+  const handleSmartDownload = (link: string, index: number) => {
+    // Agar already queue mein ya downloaded hai toh dobara add mat karo
+    if (downloadingIndices.has(index) || downloadedPhotos.has(index)) return;
+
+    queueRef.current.push({ link, index });
+    processQueue();
   };
 
   const filtered = photos.filter(p =>
@@ -123,13 +148,10 @@ export default function GalleryPage() {
         .photo-thumb-fallback { width: 100%; aspect-ratio: 4/3; background: #0a1020; display: flex; align-items: center; justify-content: center; color: rgba(201,149,108,0.3); font-size: 28px; }
         .card-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,149,108,0.08); }
         .photo-num { font-size: 9px; letter-spacing: 1.5px; color: rgba(201,149,108,0.4); }
-        
         .dl-btn { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
         .dl-btn:hover { color: #e8b888; }
         .dl-btn:disabled { opacity: 0.7; cursor: default; }
-        /* NAYA: Downloaded photo ke button ka design */
         .dl-btn.downloaded { color: rgba(245,239,230,0.4); }
-        
         .tiny-spinner { width: 10px; height: 10px; border: 2px solid rgba(201,149,108,0.2); border-top-color: #C9956C; border-radius: 50%; animation: spin 1s linear infinite; }
         .center-msg { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; text-align: center; width: 100%; }
         .center-msg h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: rgba(245,239,230,0.5); }
@@ -145,21 +167,8 @@ export default function GalleryPage() {
 
       <div className="page">
         <div className="content">
-
-          {status === "loading" && (
-            <div className="center-msg">
-              <div className="spinner" />
-              <p>Loading gallery...</p>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="center-msg">
-              <div style={{ fontSize: "32px", opacity: 0.2 }}>✦</div>
-              <h2>Gallery Unavailable</h2>
-              <p>{errorMsg}</p>
-            </div>
-          )}
+          {status === "loading" && <div className="center-msg"><div className="spinner" /><p>Loading gallery...</p></div>}
+          {status === "error" && <div className="center-msg"><div style={{ fontSize: "32px", opacity: 0.2 }}>✦</div><h2>Gallery Unavailable</h2><p>{errorMsg}</p></div>}
 
           {status === "done" && (
             <>
@@ -173,74 +182,44 @@ export default function GalleryPage() {
                 <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9956C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input className="search-input" type="text" placeholder="Search photos by filename..."
-                  value={search} onChange={(e) => setSearch(e.target.value)} />
+                <input className="search-input" type="text" placeholder="Search photos by filename..." value={search} onChange={(e) => setSearch(e.target.value)} />
                 {search && <button className="search-clear" onClick={() => setSearch("")}>✕</button>}
               </div>
 
               <div className="count-bar">
-                <p className="count-label">
-                  <span>{filtered.length}</span> of <span>{photos.length}</span> photos
-                </p>
+                <p className="count-label"><span>{filtered.length}</span> of <span>{photos.length}</span> photos</p>
               </div>
 
               {filtered.length === 0 ? (
-                <div className="empty">
-                  <div className="empty-icon">🔍</div>
-                  <p className="empty-text">No photos found</p>
-                </div>
+                <div className="empty"><div className="empty-icon">🔍</div><p className="empty-text">No photos found</p></div>
               ) : (
                 <div className="grid">
                   {filtered.map((item, index) => {
-                    // State Check for Button Design
-                    const isDownloading = downloadingIndex === index;
+                    const isDownloading = downloadingIndices.has(index);
                     const isDownloaded = downloadedPhotos.has(index);
 
                     return (
                       <div className="photo-card" key={index}>
                         <img 
                           src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
-                          alt={item.name}
-                          className="photo-thumb"
-                          loading="lazy"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            const f = e.currentTarget.nextElementSibling as HTMLElement;
-                            if (f) f.style.display = "flex";
-                          }}
+                          alt={item.name} className="photo-thumb" loading="lazy"
+                          onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }}
                         />
                         <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
                         <div className="card-footer">
                           <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
-                          
                           <button 
                             onClick={() => handleSmartDownload(item.link, index)}
                             className={`dl-btn ${isDownloaded ? 'downloaded' : ''}`}
-                            disabled={isDownloading}
+                            disabled={isDownloading || isDownloaded}
                             style={{ background: 'transparent', border: 'none', padding: 0 }}
                           >
                             {isDownloading ? (
-                              <>
-                                <div className="tiny-spinner"></div>
-                                Saving...
-                              </>
+                              <><div className="tiny-spinner"></div>Saving...</>
                             ) : isDownloaded ? (
-                              <>
-                                {/* NAYA: Checkmark icon for Saved */}
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M20 6L9 17l-5-5"/>
-                                </svg>
-                                Saved
-                              </>
+                              <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Saved</>
                             ) : (
-                              <>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                                  <polyline points="7 10 12 15 17 10"/>
-                                  <line x1="12" y1="15" x2="12" y2="3"/>
-                                </svg>
-                                Save
-                              </>
+                              <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save</>
                             )}
                           </button>
                         </div>
@@ -250,9 +229,7 @@ export default function GalleryPage() {
                 </div>
               )}
 
-              <div className="footer">
-                <p>Powered by Bhavesh.ai &nbsp;·&nbsp; AI Wedding Technology</p>
-              </div>
+              <div className="footer"><p>Powered by Bhavesh.ai &nbsp;·&nbsp; AI Wedding Technology</p></div>
             </>
           )}
         </div>
