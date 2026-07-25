@@ -16,6 +16,10 @@ export default function EventPage() {
   const [image, setImage] = useState<string | null>(null);
   const [matchedFiles, setMatchedFiles] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState("");
+  
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
+  // NAYA: Download ho chuki photos ka record
+  const [downloadedPhotos, setDownloadedPhotos] = useState<Set<number>>(new Set());
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -122,15 +126,15 @@ export default function EventPage() {
     setStatus("idle");
   };
 
-  // Hybrid Download Function (iPhone ke liye Share Menu, Android/PC ke liye Direct Gallery)
   const handleSmartDownload = async (link: string, index: number) => {
+    if (downloadingIndex !== null) return;
     try {
+      setDownloadingIndex(index);
       const filename = `wedding-photo-${index + 1}.jpg`;
       
       const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
       const blob = await res.blob();
       
-      // Check if user is on iOS (iPhone/iPad)
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
       if (isIOS && navigator.share && navigator.canShare) {
@@ -140,11 +144,12 @@ export default function EventPage() {
             files: [file],
             title: 'My Wedding Photo'
           });
-          return; // Stop here for iPhone
+          setDownloadingIndex(null);
+          setDownloadedPhotos(prev => new Set(prev).add(index));
+          return; 
         }
       }
 
-      // Fallback for Android & PC (Direct background download)
       const imageBlob = new Blob([blob], { type: "image/jpeg" });
       const blobUrl = window.URL.createObjectURL(imageBlob);
 
@@ -158,9 +163,14 @@ export default function EventPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(blobUrl);
 
+      // NAYA: Download complete hone par save status set karna
+      setDownloadedPhotos(prev => new Set(prev).add(index));
+
     } catch (error) {
       console.error("Download failed", error);
       alert("Download failed. Please try again.");
+    } finally {
+      setDownloadingIndex(null);
     }
   };
 
@@ -237,8 +247,14 @@ export default function EventPage() {
         .photo-thumb-fallback { width: 100%; aspect-ratio: 4/3; background: #0a1020; display: flex; align-items: center; justify-content: center; color: rgba(201,149,108,0.3); font-size: 28px; }
         .card-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,149,108,0.08); }
         .photo-num { font-size: 9px; letter-spacing: 1.5px; color: rgba(201,149,108,0.4); }
+        
         .dl-btn { cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
         .dl-btn:hover { color: #e8b888; }
+        .dl-btn:disabled { opacity: 0.7; cursor: default; }
+        /* NAYA: Downloaded style */
+        .dl-btn.downloaded { color: rgba(245,239,230,0.4); }
+        
+        .tiny-spinner { width: 10px; height: 10px; border: 2px solid rgba(201,149,108,0.2); border-top-color: #C9956C; border-radius: 50%; animation: spin 1s linear infinite; }
         .empty-state { text-align: center; padding: 36px 0; width: 100%; }
         .empty-icon { font-size: 30px; opacity: 0.2; margin-bottom: 12px; }
         .empty-text { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 300; color: rgba(245,239,230,0.3); line-height: 1.6; }
@@ -329,33 +345,56 @@ export default function EventPage() {
                   </div>
                   {matchedFiles.length > 0 ? (
                     <div className="results-grid">
-                      {matchedFiles.map((item, index) => (
-                        <div className="photo-card" key={index}>
-                          <img 
-                            src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
-                            alt={`Photo ${index + 1}`} 
-                            className="photo-thumb"
-                            loading="lazy"
-                            onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }} 
-                          />
-                          <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
-                          <div className="card-footer">
-                            <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
-                            
-                            <button 
-                              onClick={() => handleSmartDownload(item.link, index)}
-                              className="dl-btn"
-                              style={{ background: 'transparent', border: 'none', padding: 0 }}
-                            >
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                              </svg>
-                              Save
-                            </button>
-                            
+                      {matchedFiles.map((item, index) => {
+                        // NAYA: Status Check
+                        const isDownloading = downloadingIndex === index;
+                        const isDownloaded = downloadedPhotos.has(index);
+
+                        return (
+                          <div className="photo-card" key={index}>
+                            <img 
+                              src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
+                              alt={`Photo ${index + 1}`} 
+                              className="photo-thumb"
+                              loading="lazy"
+                              onError={(e) => { e.currentTarget.style.display = "none"; const f = e.currentTarget.nextElementSibling as HTMLElement; if (f) f.style.display = "flex"; }} 
+                            />
+                            <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
+                            <div className="card-footer">
+                              <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
+                              
+                              <button 
+                                onClick={() => handleSmartDownload(item.link, index)}
+                                className={`dl-btn ${isDownloaded ? 'downloaded' : ''}`}
+                                disabled={isDownloading}
+                                style={{ background: 'transparent', border: 'none', padding: 0 }}
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <div className="tiny-spinner"></div>
+                                    Saving...
+                                  </>
+                                ) : isDownloaded ? (
+                                  <>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M20 6L9 17l-5-5"/>
+                                    </svg>
+                                    Saved
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    Save
+                                  </>
+                                )}
+                              </button>
+                              
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="empty-state">
