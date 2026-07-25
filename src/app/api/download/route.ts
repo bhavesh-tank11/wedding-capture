@@ -1,29 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const fileUrl = searchParams.get('url');
-
-  if (!fileUrl) {
-    return new NextResponse('Missing URL', { status: 400 });
+export async function GET(req: NextRequest) {
+  const url = req.nextUrl.searchParams.get("url");
+  
+  if (!url) {
+    return NextResponse.json({ error: "url required" }, { status: 400 });
   }
 
   try {
-    const directUrl = fileUrl
-      .replace('/view?usp=drivesdk', '')
-      .replace('/view', '')
-      .replace('file/d/', 'uc?export=download&id=');
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      throw new Error("Failed to fetch image");
+    }
 
-    const response = await fetch(directUrl);
-    const buffer = await response.arrayBuffer();
+    const buffer = await res.arrayBuffer();
+    const contentType = res.headers.get("content-type") || "image/jpeg";
 
     return new NextResponse(buffer, {
+      status: 200,
       headers: {
-        'Content-Disposition': 'attachment; filename="TS_Wedding_Capture.jpg"',
-        'Content-Type': 'image/jpeg',
+        "Content-Type": contentType,
+        "Content-Disposition": 'attachment; filename="wedding-photo.jpg"',
       },
     });
+
   } catch (error) {
-    return new NextResponse('Failed to download', { status: 500 });
+    console.error("Download API Error:", error);
+    return NextResponse.json({ error: "Error downloading image" }, { status: 500 });
   }
 }

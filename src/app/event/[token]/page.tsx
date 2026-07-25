@@ -122,6 +122,48 @@ export default function EventPage() {
     setStatus("idle");
   };
 
+  // Hybrid Download Function (iPhone ke liye Share Menu, Android/PC ke liye Direct Gallery)
+  const handleSmartDownload = async (link: string, index: number) => {
+    try {
+      const filename = `wedding-photo-${index + 1}.jpg`;
+      
+      const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
+      const blob = await res.blob();
+      
+      // Check if user is on iOS (iPhone/iPad)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+      if (isIOS && navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: "image/jpeg" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'My Wedding Photo'
+          });
+          return; // Stop here for iPhone
+        }
+      }
+
+      // Fallback for Android & PC (Direct background download)
+      const imageBlob = new Blob([blob], { type: "image/jpeg" });
+      const blobUrl = window.URL.createObjectURL(imageBlob);
+
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+
+    } catch (error) {
+      console.error("Download failed", error);
+      alert("Download failed. Please try again.");
+    }
+  };
+
   useEffect(() => () => stopCamera(), []);
 
   const showVideo = status === "camera";
@@ -300,16 +342,16 @@ export default function EventPage() {
                           <div className="card-footer">
                             <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
                             
-                            <a 
-                              href={`/api/download?url=${encodeURIComponent(item.link)}`} 
-                              download="wedding-photo.jpg"
+                            <button 
+                              onClick={() => handleSmartDownload(item.link, index)}
                               className="dl-btn"
+                              style={{ background: 'transparent', border: 'none', padding: 0 }}
                             >
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
                               Save
-                            </a>
+                            </button>
                             
                           </div>
                         </div>

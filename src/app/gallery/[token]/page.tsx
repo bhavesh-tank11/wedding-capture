@@ -34,6 +34,48 @@ export default function GalleryPage() {
     if (token) load();
   }, [token]);
 
+  // Hybrid Download Function (iPhone ke liye Share Menu, Android/PC ke liye Direct Gallery)
+  const handleSmartDownload = async (link: string, index: number) => {
+    try {
+      const filename = `wedding-photo-${index + 1}.jpg`;
+      
+      const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
+      const blob = await res.blob();
+      
+      // Check if user is on iOS (iPhone/iPad)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+      if (isIOS && navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: "image/jpeg" });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'My Wedding Photo'
+          });
+          return; // Stop here for iPhone
+        }
+      }
+
+      // Fallback for Android & PC (Direct background download)
+      const imageBlob = new Blob([blob], { type: "image/jpeg" });
+      const blobUrl = window.URL.createObjectURL(imageBlob);
+
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+
+    } catch (error) {
+      console.error("Download failed", error);
+      alert("Download failed. Please try again.");
+    }
+  };
+
   const filtered = photos.filter(p =>
     (p?.name || "").toLowerCase().includes(search.toLowerCase())
   );
@@ -68,7 +110,7 @@ export default function GalleryPage() {
         .photo-thumb-fallback { width: 100%; aspect-ratio: 4/3; background: #0a1020; display: flex; align-items: center; justify-content: center; color: rgba(201,149,108,0.3); font-size: 28px; }
         .card-footer { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(201,149,108,0.08); }
         .photo-num { font-size: 9px; letter-spacing: 1.5px; color: rgba(201,149,108,0.4); }
-        .dl-btn { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
+        .dl-btn { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-size: 9px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #C9956C; transition: color 0.2s; font-family: 'Inter', sans-serif; }
         .dl-btn:hover { color: #e8b888; }
         .center-msg { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 16px; text-align: center; width: 100%; }
         .center-msg h2 { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: rgba(245,239,230,0.5); }
@@ -133,11 +175,11 @@ export default function GalleryPage() {
                   {filtered.map((item, index) => (
                     <div className="photo-card" key={index}>
                       <img 
-                           src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
-                           alt={item.name}
-                           className="gallery-thumb"
-                           loading="lazy"
-                          /> {
+                        src={`${BACKEND}/thumbnail?file_id=${item.file_id || ""}&url=${encodeURIComponent(item.thumbnail || "")}`} 
+                        alt={item.name}
+                        className="photo-thumb"
+                        loading="lazy"
+                        onError={(e) => {
                           e.currentTarget.style.display = "none";
                           const f = e.currentTarget.nextElementSibling as HTMLElement;
                           if (f) f.style.display = "flex";
@@ -146,10 +188,10 @@ export default function GalleryPage() {
                       <div className="photo-thumb-fallback" style={{ display: "none" }}>🖼️</div>
                       <div className="card-footer">
                         <span className="photo-num">#{String(index + 1).padStart(2, "0")}</span>
-                        <a 
-                          href={`/api/download?url=${encodeURIComponent(item.link)}`} 
-                          download="wedding-photo.jpg" 
+                        <button 
+                          onClick={() => handleSmartDownload(item.link, index)}
                           className="dl-btn"
+                          style={{ background: 'transparent', border: 'none', padding: 0 }}
                         >
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
@@ -157,7 +199,7 @@ export default function GalleryPage() {
                             <line x1="12" y1="15" x2="12" y2="3"/>
                           </svg>
                           Save
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}
