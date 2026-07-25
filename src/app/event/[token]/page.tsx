@@ -17,10 +17,9 @@ export default function EventPage() {
   const [matchedFiles, setMatchedFiles] = useState<any[]>([]);
   const [statusMsg, setStatusMsg] = useState("");
   
-  const [downloadingIndices, setDownloadingIndices] = useState<Set<number>>(new Set());
+  const [clickedPhotos, setClickedPhotos] = useState<Set<number>>(new Set());
   const [downloadedPhotos, setDownloadedPhotos] = useState<Set<number>>(new Set());
 
-  // Queue system refs
   const queueRef = useRef<{ link: string; index: number }[]>([]);
   const isProcessingQueue = useRef(false);
 
@@ -136,7 +135,6 @@ export default function EventPage() {
       const { link, index } = current;
 
       try {
-        setDownloadingIndices(prev => new Set(prev).add(index));
         const filename = `wedding-photo-${index + 1}.jpg`;
         
         const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
@@ -149,11 +147,6 @@ export default function EventPage() {
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file], title: 'My Wedding Photo' });
             setDownloadedPhotos(prev => new Set(prev).add(index));
-            setDownloadingIndices(prev => {
-              const next = new Set(prev);
-              next.delete(index);
-              return next;
-            });
             continue; 
           }
         }
@@ -175,8 +168,7 @@ export default function EventPage() {
 
       } catch (error) {
         console.error("Download failed", error);
-      } finally {
-        setDownloadingIndices(prev => {
+        setClickedPhotos(prev => {
           const next = new Set(prev);
           next.delete(index);
           return next;
@@ -188,7 +180,8 @@ export default function EventPage() {
   };
 
   const handleSmartDownload = (link: string, index: number) => {
-    if (downloadingIndices.has(index) || downloadedPhotos.has(index)) return;
+    if (clickedPhotos.has(index) || downloadedPhotos.has(index)) return;
+    setClickedPhotos(prev => new Set(prev).add(index));
     queueRef.current.push({ link, index });
     processQueue();
   };
@@ -346,7 +339,7 @@ export default function EventPage() {
                   {matchedFiles.length > 0 ? (
                     <div className="results-grid">
                       {matchedFiles.map((item, index) => {
-                        const isDownloading = downloadingIndices.has(index);
+                        const isClicked = clickedPhotos.has(index);
                         const isDownloaded = downloadedPhotos.has(index);
 
                         return (
@@ -362,10 +355,10 @@ export default function EventPage() {
                               <button 
                                 onClick={() => handleSmartDownload(item.link, index)}
                                 className={`dl-btn ${isDownloaded ? 'downloaded' : ''}`}
-                                disabled={isDownloading || isDownloaded}
+                                disabled={isClicked}
                                 style={{ background: 'transparent', border: 'none', padding: 0 }}
                               >
-                                {isDownloading ? (
+                                {isClicked && !isDownloaded ? (
                                   <><div className="tiny-spinner"></div>Saving...</>
                                 ) : isDownloaded ? (
                                   <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Saved</>

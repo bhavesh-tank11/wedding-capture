@@ -14,10 +14,9 @@ export default function GalleryPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
   
-  const [downloadingIndices, setDownloadingIndices] = useState<Set<number>>(new Set());
+  const [clickedPhotos, setClickedPhotos] = useState<Set<number>>(new Set());
   const [downloadedPhotos, setDownloadedPhotos] = useState<Set<number>>(new Set());
 
-  // Queue system ke liye refs
   const queueRef = useRef<{ link: string; index: number }[]>([]);
   const isProcessingQueue = useRef(false);
 
@@ -43,7 +42,6 @@ export default function GalleryPage() {
     if (token) load();
   }, [token]);
 
-  
   const processQueue = async () => {
     if (isProcessingQueue.current) return;
     isProcessingQueue.current = true;
@@ -55,7 +53,6 @@ export default function GalleryPage() {
       const { link, index } = current;
 
       try {
-        setDownloadingIndices(prev => new Set(prev).add(index));
         const filename = `wedding-photo-${index + 1}.jpg`;
         
         const res = await fetch(`/api/download?url=${encodeURIComponent(link)}`);
@@ -68,11 +65,6 @@ export default function GalleryPage() {
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file], title: 'My Wedding Photo' });
             setDownloadedPhotos(prev => new Set(prev).add(index));
-            setDownloadingIndices(prev => {
-              const next = new Set(prev);
-              next.delete(index);
-              return next;
-            });
             continue; 
           }
         }
@@ -94,8 +86,7 @@ export default function GalleryPage() {
 
       } catch (error) {
         console.error("Download failed", error);
-      } finally {
-        setDownloadingIndices(prev => {
+        setClickedPhotos(prev => {
           const next = new Set(prev);
           next.delete(index);
           return next;
@@ -107,9 +98,9 @@ export default function GalleryPage() {
   };
 
   const handleSmartDownload = (link: string, index: number) => {
-    // Agar already queue mein ya downloaded hai toh dobara add mat karo
-    if (downloadingIndices.has(index) || downloadedPhotos.has(index)) return;
+    if (clickedPhotos.has(index) || downloadedPhotos.has(index)) return;
 
+    setClickedPhotos(prev => new Set(prev).add(index));
     queueRef.current.push({ link, index });
     processQueue();
   };
@@ -195,7 +186,7 @@ export default function GalleryPage() {
               ) : (
                 <div className="grid">
                   {filtered.map((item, index) => {
-                    const isDownloading = downloadingIndices.has(index);
+                    const isClicked = clickedPhotos.has(index);
                     const isDownloaded = downloadedPhotos.has(index);
 
                     return (
@@ -211,10 +202,10 @@ export default function GalleryPage() {
                           <button 
                             onClick={() => handleSmartDownload(item.link, index)}
                             className={`dl-btn ${isDownloaded ? 'downloaded' : ''}`}
-                            disabled={isDownloading || isDownloaded}
+                            disabled={isClicked}
                             style={{ background: 'transparent', border: 'none', padding: 0 }}
                           >
-                            {isDownloading ? (
+                            {isClicked && !isDownloaded ? (
                               <><div className="tiny-spinner"></div>Saving...</>
                             ) : isDownloaded ? (
                               <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Saved</>
